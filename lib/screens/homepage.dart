@@ -8,10 +8,15 @@ import 'package:gpt_vision_leaf_detect/constants/constants.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../services/api_service.dart';
+import '../services/ml_kit_service.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({
+    super.key,
+    this.useGpt = false,
+  });
 
+  final bool useGpt;
   @override
   State<HomePage> createState() => _MyHomePageState();
 }
@@ -19,6 +24,7 @@ class HomePage extends StatefulWidget {
 class _MyHomePageState extends State<HomePage> {
   final apiService = ApiService();
   File? _selectedImage;
+
   String diseaseName = '';
   String diseasePrecautions = '';
   bool detecting = false;
@@ -26,7 +32,7 @@ class _MyHomePageState extends State<HomePage> {
 
   Future<void> _pickImage(ImageSource source) async {
     final pickedFile =
-        await ImagePicker().pickImage(source: source, imageQuality: 50);
+        await ImagePicker().pickImage(source: source, imageQuality: 100);
     if (pickedFile != null) {
       setState(() {
         _selectedImage = File(pickedFile.path);
@@ -37,10 +43,18 @@ class _MyHomePageState extends State<HomePage> {
   detectDisease() async {
     setState(() {
       detecting = true;
+      diseaseName = '';
     });
     try {
-      diseaseName =
-          await apiService.sendImageToGPT4Vision(image: _selectedImage!);
+      if (widget.useGpt) {
+        diseaseName =
+            await apiService.sendImageToGPT4Vision(image: _selectedImage!);
+      } else {
+        if (_selectedImage != null) {
+          diseaseName = (await MLKitService().detectText(_selectedImage!.path))
+              .join('\n');
+        }
+      }
     } catch (error) {
       _showErrorSnackBar(error);
     } finally {
@@ -92,95 +106,64 @@ class _MyHomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('OCR'),
+        centerTitle: true,
+      ),
       body: Column(
         children: <Widget>[
-          const SizedBox(height: 20),
-          Stack(
-            children: [
-              Container(
-                height: MediaQuery.of(context).size.height * 0.23,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.only(
-                    // Top right corner
-                    bottomLeft: Radius.circular(50.0), // Bottom right corner
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: <Widget>[
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    _pickImage(ImageSource.gallery);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: themeColor,
                   ),
-                  color: themeColor,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'GALLERY',
+                        style: TextStyle(color: textColor),
+                      ),
+                      const SizedBox(width: 10),
+                      Icon(
+                        Icons.image,
+                        color: textColor,
+                      )
+                    ],
+                  ),
                 ),
               ),
-              Container(
-                height: MediaQuery.of(context).size.height * 0.2,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: const BorderRadius.only(
-                    // Top right corner
-                    bottomLeft: Radius.circular(50.0), // Bottom right corner
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    _pickImage(ImageSource.camera);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: themeColor,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      // Shadow color with some transparency
-                      spreadRadius: 1,
-                      // Extend the shadow to all sides equally
-                      blurRadius: 5,
-                      // Soften the shadow
-                      offset: const Offset(2, 2), // Position of the shadow
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: <Widget>[
-                    ElevatedButton(
-                      onPressed: () {
-                        _pickImage(ImageSource.gallery);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: themeColor,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'OPEN GALLERY',
-                            style: TextStyle(color: textColor),
-                          ),
-                          const SizedBox(width: 10),
-                          Icon(
-                            Icons.image,
-                            color: textColor,
-                          )
-                        ],
-                      ),
-                    ),
-                    ElevatedButton(
-                      onPressed: () {
-                        _pickImage(ImageSource.camera);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: themeColor,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('START CAMERA',
-                              style: TextStyle(color: textColor)),
-                          const SizedBox(width: 10),
-                          Icon(Icons.camera_alt, color: textColor)
-                        ],
-                      ),
-                    ),
-                  ],
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('CAMERA', style: TextStyle(color: textColor)),
+                      const SizedBox(width: 10),
+                      Icon(Icons.camera_alt, color: textColor)
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
           _selectedImage == null
-              ? Container(
+              ? SizedBox(
                   height: MediaQuery.of(context).size.height * 0.5,
-                  child: Image.asset('assets/images/pick1.png'),
+                  child: const FlutterLogo(),
                 )
               : Expanded(
                   child: Container(
@@ -199,10 +182,7 @@ class _MyHomePageState extends State<HomePage> {
                 ),
           if (_selectedImage != null)
             detecting
-                ? SpinKitWave(
-                    color: themeColor,
-                    size: 30,
-                  )
+                ? SpinKitWave(color: themeColor, size: 30)
                 : Container(
                     width: double.infinity,
                     padding:
@@ -210,13 +190,6 @@ class _MyHomePageState extends State<HomePage> {
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: themeColor,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 30, vertical: 15),
-                        // Set some horizontal and vertical padding
-                        shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(15), // Rounded corners
-                        ),
                       ),
                       onPressed: () {
                         detectDisease();
@@ -237,53 +210,58 @@ class _MyHomePageState extends State<HomePage> {
               children: [
                 Container(
                   height: MediaQuery.of(context).size.height * 0.2,
-                  padding: EdgeInsets.symmetric(vertical: 0, horizontal: 20),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      DefaultTextStyle(
-                        style: const TextStyle(
-                            color: Colors.black,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 16),
-                        child: AnimatedTextKit(
-                            isRepeatingAnimation: false,
-                            repeatForever: false,
-                            displayFullTextOnTap: true,
-                            totalRepeatCount: 1,
-                            animatedTexts: [
-                              TyperAnimatedText(
-                                diseaseName.trim(),
-                              ),
-                            ]),
-                      )
-                    ],
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 0, horizontal: 20),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        DefaultTextStyle(
+                          style: const TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16),
+                          child: AnimatedTextKit(
+                              isRepeatingAnimation: false,
+                              repeatForever: false,
+                              displayFullTextOnTap: true,
+                              totalRepeatCount: 1,
+                              animatedTexts: [
+                                TyperAnimatedText(
+                                  diseaseName.trim(),
+                                ),
+                              ]),
+                        )
+                      ],
+                    ),
                   ),
                 ),
-                precautionLoading
-                    ? const SpinKitWave(
-                        color: Colors.blue,
-                        size: 30,
-                      )
-                    : ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 30, vertical: 15),
-                        ),
-                        onPressed: () {
-                          showPrecautions();
-                        },
-                        child: Text(
-                          'PRECAUTION',
-                          style: TextStyle(
-                            color: textColor,
+                if (widget.useGpt) ...[
+                  precautionLoading
+                      ? const SpinKitWave(
+                          color: Colors.blue,
+                          size: 30,
+                        )
+                      : ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 30, vertical: 15),
+                          ),
+                          onPressed: () {
+                            showPrecautions();
+                          },
+                          child: Text(
+                            'PRECAUTION',
+                            style: TextStyle(
+                              color: textColor,
+                            ),
                           ),
                         ),
-                      ),
+                ],
               ],
             ),
-          const SizedBox(height: 30),
+          const SizedBox(height: 10),
         ],
       ),
     );

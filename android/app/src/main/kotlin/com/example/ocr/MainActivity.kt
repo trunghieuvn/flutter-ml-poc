@@ -1,4 +1,4 @@
-package com.example.gpt_vision_leaf_detect
+package com.example.ocr
 
 import io.flutter.embedding.android.FlutterActivity
 

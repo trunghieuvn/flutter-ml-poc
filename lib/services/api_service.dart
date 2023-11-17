@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../constants/api_constants.dart';
 
@@ -76,7 +77,7 @@ class ApiService {
                 {
                   'type': 'text',
                   'text':
-                      'GPT, your task is to identify plant health issues with precision. Analyze any image of a plant or leaf I provide, and detect all abnormal conditions, whether they are diseases, pests, deficiencies, or decay. Respond strictly with the name of the condition identified, and nothing else—no explanations, no additional text. If a condition is unrecognizable, reply with \'I don\'t know\'. If the image is not plant-related, say \'Please pick another image\'',
+                      'GPT, your task is to identify detect text from image and reponse value text in image. If text have duplicate can return all values in image',
                 },
                 {
                   'type': 'image_url',
@@ -92,7 +93,9 @@ class ApiService {
       );
 
       final jsonResponse = response.data;
-
+      if (kDebugMode) {
+        print(jsonResponse);
+      }
       if (jsonResponse['error'] != null) {
         throw HttpException(jsonResponse['error']["message"]);
       }
