@@ -36,7 +36,6 @@ class MLKitService {
         }
       }
     }
-  return result;
+    return result;
   }
-
 }
